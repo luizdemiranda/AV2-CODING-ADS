@@ -1,310 +1,282 @@
-# O que deve ser feito.
+# Registro – AV2 Controle de Estoque
 
-01. A papelaria precisa conferir se tem unidades suficientes para um pedido.
-02. Também precisa calcular quantas unidades sobram depois da venda.
-03. Seu programa vai receber as quantidades e devolver uma resposta para cada pergunta.
+**Aluno:** Luiz Augusto Barros de Miranda
+**Disciplina/Turma:** ADS - CODING - MANHÃ
 
-04. A ia utilizada durante o projeto será o modelo ChatGPT da OpenAi.
+## IA utilizada
 
-# Código Inicial
+Uso do modelo ChatGPT (OpenAI) para investigar o erro inicial e corrigir a validação das funções. Também houve o uso de outros modelos, como o Claude (Anthropic), para revisar o código e organizar este registro. Em todos os casos, conferi as sugestões rodando o código no terminal.
 
-    function exibirNumbero(valor) {
-        return valor.toFixed(0);
-    }
+---
 
-    try {
-        console.log(exibirNumero("5"));
-    } catch(erro) {
-        //Execute o arquivo com o catch vazio.
-    }
+## Etapa 1 – Diagnóstico
 
-- Neste caso não é exibido nada no terminal.
+### Código inicial (`diagnostico.js`)
 
-# Código corrigido
-
-```
+```javascript
 function exibirNumero(valor) {
     return valor.toFixed(0);
 }
 
 try {
     console.log(exibirNumero("5"));
-} catch (error) {
-    console.error(error);
+} catch (erro) {
+    // Execute o arquivo com o catch vazio.
 }
 ```
 
-002. primeiro problema documentado: 
+### O que foi observado
+
+1. **Execução com o catch vazio:** nada apareceu no terminal.
+2. **Execução com `console.error(erro)` no catch:** apareceu o erro abaixo.
+
 ```
 TypeError: valor.toFixed is not a function
+    at exibirNumero (teste1.js:3:18)
+    at Object.<anonymous> (teste1.js:8:17)
 ```
-o seguinte problema acontece pois toFixed apenas retorna um valor numérico, porém, no programa é inserido uma string, o que ocasiona o problema TypeError: toFixed is not a function.
 
-- agora será utilizado o método "console.log(typeof valor)", para assim descobrirmos o tipo da variável valor.
+A pilha aponta para a linha 3, onde `valor.toFixed(0)` é chamado, e a chamada que originou o erro foi `exibirNumero("5")`, na linha 8. O arquivo `teste1.js` foi um arquivo temporário, usado só para esta investigação.
 
+3. **Com `console.log(typeof valor)` antes do return:**
 
-003. Segundo problema documentado:
-    O seguine problema foi uma falha no atendimento aos requisitos, onde a função podeAtenderPedido não fazia a validação se o valor era uma string ou do tipo number, sendo exibida a seguine saida:
-    ´´´
-        5
-        true
-        false
-        true
-        6
-        Estoque Insuficiente
-        1
-    ´´´
+| Chamada | `typeof valor` | Resultado |
+|---|---|---|
+| `exibirNumero("5")` | string | TypeError: valor.toFixed is not a function |
+| `exibirNumero(5)` | number | 5 |
 
-# Qual solução foi dada pela IA no Problema 001?
+Com `5` (número) a função funciona. Com `"5"` (texto) ela falha, porque `toFixed` só existe em números.
 
-```
-Uma possível causa para esse problema é que o valor recebido pela função exibirNumero() está sendo passado como uma string ("5") em vez de um número (5).
+### Hipótese da IA
 
-O método .toFixed() é próprio de valores numéricos (Number) em JavaScript. Como o parâmetro valor recebe uma string, ocorre o erro:
+A IA indicou que o valor chegava como texto (`"5"`) e não como número (`5`). O método `toFixed()` existe só em números, por isso a chamada falhava. Ela sugeriu converter com `Number(valor)` e validar o tipo antes de usar métodos numéricos.
 
-TypeError: valor.toFixed is not a function
+### Causa do erro inicial e efeito do catch vazio
 
-Como resolver
-Uma solução é converter o valor para número antes de utilizar o método .toFixed():
+- **Causa:** `"5"` é uma string, e strings não têm o método `toFixed`. Isso gerou um `TypeError`.
+- **Efeito do catch vazio:** o erro aconteceu, mas o `catch` não fazia nada com ele. Por isso a primeira execução ficou silenciosa, sem nenhuma mensagem no terminal. Com `console.error(erro)`, o erro passou a aparecer.
 
+---
 
-javascript
-function exibirNumero(valor) {
-    return Number(valor).toFixed(0);
+## Etapa 2 – Implementação
+
+### Regras de entrada
+
+- `estoque`: inteiro maior ou igual a zero.
+- `pedido`: inteiro maior que zero.
+- Qualquer argumento inválido: retornar `"Quantidade inválida"`.
+
+### Primeira versão (antes da validação de tipos)
+
+```javascript
+export function podeAtenderPedido(estoque, pedido) {
+    if (pedido <= estoque) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
-try {
-    console.log(exibirNumero("5"));
-} catch (error) {
-    console.error(error);
+export function estoqueAposVenda(estoque, pedido) {
+    if (typeof estoque === "string" || typeof pedido === "string") {
+        return "Quantidade inválida";
+    } else if (Number(pedido) > Number(estoque)) {
+        return "Estoque Insuficiente";
+    } else {
+        return Number(estoque - pedido);
+    }
 }
-Resultado esperado:
+```
 
+### Conferência da primeira versão
 
-javascript
+Saída observada no terminal nas primeiras execuções (nesta versão, `podeAtenderPedido` ainda só comparava `pedido <= estoque`, sem validar o tipo):
+
+```
 5
-Outra hipótese importante
-O erro também pode ocorrer se a função receber outros tipos de dados, como objetos, arrays ou valores indefinidos (undefined).
-
-Recomendação: validar ou converter o tipo do parâmetro antes de chamar métodos específicos de números, garantindo que a função receba um valor numérico válido.
+true
+false
+true
+6
+Estoque Insuficiente
+1
 ```
 
+**Problemas encontrados:**
 
-- Restrições apartir de agora:
-    - O parâmetro estoque deve ser um número inteiro maior ou igual a zero.
+1. `podeAtenderPedido("10", 4)` retornou `true`, mas o esperado era `"Quantidade inválida"`. A função ainda não validava o texto corretamente.
+2. A mensagem saiu como `"Estoque Insuficiente"` (I maiúsculo), mas o PDF pede `"Estoque insuficiente"`.
 
-    - o parâmetro pedido deve ser um nnúmero inteiro maior que zero.
+### Sugestão da IA para o problema da validação
 
-    - Number.isInteger(5) retorne true. com "5" ou 2.5, retorne false.
+A IA explicou que `typeof` devolve uma string, então a comparação correta é `typeof x === "string"` (e não `=== String`). Também lembrou de usar `return` em vez de `console.log` dentro da função. Ela propôs validar com `typeof estoque !== "number"`.
 
-    - Se algum argumento for inválido, as duas funções retornam "Quantidade inválida".
+### Como avaliei a sugestão (evidência)
 
+A sugestão de usar só `typeof x !== "number"` resolve o caso `"10"`, mas parece não cobrir as regras do PDF. Para conferir, executei a validação sugerida pela IA:
 
-# Qual solução foi dada pela IA no Problema 002?
-        O problema está em alguns detalhes de JavaScript, principalmente na utilização do typeof e na conversão de tipos.
-
-        Vamos analisar os erros separadamente.
-
-        1. Erro no typeof
-        Você escreveu:
-
-
-        javascript
-        if (typeof estoque === String || typeof pedido === String)
-        O problema é que typeof retorna uma string, e não o tipo String.
-
-        Por exemplo:
-
-
-        javascript
-        typeof "10" // "string"
-        typeof 10   // "number"
-        Portanto, a comparação correta é:
-
-
-        javascript
-        if (typeof estoque === "string" || typeof pedido === "string") {
-            return "Quantidade inválida";
-        }
-        Observe também que você estava usando console.log() dentro da função. Isso apenas exibe uma mensagem no console, mas não devolve o resultado para quem chamou a função.
-
-        Use return.
-
-        2. Função podeAtenderPedido()
-        Seu código atual:
-
-
-        javascript
-        export function podeAtenderPedido(estoque, pedido) {
-            if (pedido <= estoque) {
-                return true;
-            } else {
-                return false;
-            }
-        }
-        Aqui está outro problema: o JavaScript faz conversão automática de tipos em comparações.
-
-        Por exemplo:
-
-
-        javascript
-        "10" <= 4 // false
-        Mas, no seu caso, você quer impedir que uma string seja aceita como quantidade.
-
-        Uma solução:
-
-
-        javascript
-        export function podeAtenderPedido(estoque, pedido) {
-            if (typeof estoque !== "number" || typeof pedido !== "number") {
-                return "Quantidade inválida";
-            }
-
-            if (pedido > estoque) {
-                return false;
-            }
-
-            return true;
-        }
-        3. Função estoqueAposVenda()
-        Aqui também precisamos corrigir a validação e padronizar a mensagem de retorno.
-
-
-        javascript
-        export function estoqueAposVenda(estoque, pedido) {
-            if (typeof estoque !== "number" || typeof pedido !== "number") {
-                return "Quantidade inválida";
-            }
-
-            if (pedido > estoque) {
-                return "Estoque insuficiente";
-            }
-
-            return estoque - pedido;
-        }
-        4. Código completo corrigido
-
-        javascript
-
-        export function estoqueAposVenda(estoque, pedido) {
-            if (typeof estoque !== "number" || typeof pedido !== "number") {
-                return "Quantidade inválida";
-            }
-
-            if (pedido > estoque) {
-                return "Estoque insuficiente";
-            }
-
-            return estoque - pedido;
-        }
-
-        export function podeAtenderPedido(estoque, pedido) {
-            if (typeof estoque !== "number" || typeof pedido !== "number") {
-                return "Quantidade inválida";
-            }
-
-            return pedido <= estoque;
-        }
-        5. Resultado esperado
-        Execução
-
-        Resultado
-
-        podeAtenderPedido(10, 4)
-
-        true
-
-        podeAtenderPedido(3, 4)
-
-        false
-
-        podeAtenderPedido("10", 4)
-
-        "Quantidade inválida"
-
-        estoqueAposVenda(10, 4)
-
-        6
-
-        estoqueAposVenda(3, 4)
-
-        "Estoque insuficiente"
-
-        estoqueAposVenda(5, 4)
-
-        1
-
-        estoqueAposVenda("10", 4)
-
-        "Quantidade inválida"
-
-        6. Uma dica importante para seus estudos
-        Existem três conceitos que você precisa guardar:
-
-        typeof: verifica o tipo de dado.
-
-        console.log(): mostra algo no console.
-
-        return: devolve um resultado para quem chamou a função.
-
-        Uma observação adicional: se você quiser impedir também valores como NaN, Infinity e números negativos, precisará acrescentar outras validações.
-
-        Seu raciocínio estava correto! O principal problema foi confundir String com "string" e console.log() com return.
-
-# Funções inseridas em estoque:
-- Função podeAtenderPedido
-    - Receba estoque e pedido. Valide os dois argumentos pimeiro.
-    - Retorne true se o pedido for menor ou igual ao estoque
-    - Retorne false se o pedido for maior que o estoque.
-
-- Função estoqueAposVenda
-    - Receba estoque e pedido. Use as mesmas regras de validação.
-    - Se o pedido superar o estoque, retorne "Estoque insuficiente".
-    - Nos outros casos, retorne o estoque menos a quantidade pedida.
-
-# Conferência da primeira versão:
-    podeAtenderPedido(10, 4) // true   
-    podeAtenderPedido(3, 4) // false
-    podeAtenderPedido("10", 4) // "Quantidade inválida"
-
-    estoqueAposVenda(10, 4) // 6
-    estoqueAposVenda(3, 4) // "Estoque insuficiente" 
-    estoqueAposVenda(5, 4) // 1 
-
-# Validação em uma função auxiliar
-    // A validação repetida é a função:
-        if (typeof estoque === "string" || typeof pedido === "string") {
+```javascript
+function estoqueAposVendaAntiga(estoque, pedido) {
+    if (typeof estoque !== "number" || typeof pedido !== "number") {
         return "Quantidade inválida";
     }
-
-# Novas Regras
-01. Altere estoqueAposVenda para deixar pelo menos duas unidades em estoque.
-02. Valide os argumentos e mantenha "Estoque insuficiente" se faltarem unidades para o pedido.
-03. Quando houver unidades para o pedido, calcule o saldo. Se for menor que dois, retorne "Estoque mínimo atingido".
-04. Retorne o saldo quando ele for dois ou mais.
-
-Resultados de teste antes e depois da mudança
-    
-        estoqueAposVenda(5, 4)
-        // Antes: 1
-        // Depois: Estoque mínimo atingido
-        
-        estoqueAposVenda(5, 3)
-        // Antes e depois: 2
-
-        estoqueAposVenda(3, 4)
-        // Anes e depois: "Estoque insuficiente
-
-# Modelo de testes pelo terminal
-
-    const esperado = 2;
-    const obtido = estoqueAposVenda(5, 3);
-
-    console.log("Esperado", esperado);
-    console.log("Obtido", obtido);
-
-    if (obtido === esperado) {
-        console.log("PASSOU");
-    } else {
-        console.log("FALHOU);
+    if (pedido > estoque) {
+        return "Estoque insuficiente";
     }
+    return estoque - pedido;
+}
+
+console.log(estoqueAposVendaAntiga(2.5, 1));
+```
+
+Resultado observado no terminal: `1.5`
+
+`2.5` é do tipo `number`, então passou pela validação do `typeof` e a função calculou `2.5 - 1 = 1.5`. Mas o PDF diz que `2.5` deve ser inválido, e o esperado era `"Quantidade inválida"`. A sugestão da IA falha nesse caso.
+
+Por isso troquei a validação por `Number.isInteger` com as checagens de faixa.
+
+---
+
+## Etapa 3 – Refatoração
+
+A validação aparecia repetida nas duas funções. Extraí para a função auxiliar `dadosValidos`:
+
+```javascript
+function dadosValidos(estoque, pedido) {
+    return Number.isInteger(estoque) && estoque >= 0 &&
+           Number.isInteger(pedido) && pedido > 0;
+}
+
+export function podeAtenderPedido(estoque, pedido) {
+    if (!dadosValidos(estoque, pedido)) {
+        return "Quantidade inválida";
+    }
+    return pedido <= estoque;
+}
+
+export function estoqueAposVenda(estoque, pedido) {
+    if (!dadosValidos(estoque, pedido)) {
+        return "Quantidade inválida";
+    }
+    if (pedido > estoque) {
+        return "Estoque insuficiente";
+    }
+    return estoque - pedido;
+}
+```
+
+### Comparação das saídas (antes e depois da refatoração)
+
+| Chamada | Antes | Depois |
+|---|---|---|
+| `podeAtenderPedido(10, 4)` | true | true |
+| `podeAtenderPedido(3, 4)` | false | false |
+| `podeAtenderPedido("10", 4)` | true (erro) | "Quantidade inválida" |
+| `estoqueAposVenda(10, 4)` | 6 | 6 |
+| `estoqueAposVenda(3, 4)` | "Estoque Insuficiente" | "Estoque insuficiente" |
+| `estoqueAposVenda(5, 4)` | 1 | 1 |
+
+Observação: as saídas de `podeAtenderPedido` na coluna "Depois" foram conferidas nos testes da Etapa 5, pois essa função não foi alterada depois da Etapa 3.
+
+Conclusão: as saídas ficaram iguais, exceto em duas chamadas que a refatoração e a nova validação corrigiram: `podeAtenderPedido("10", 4)` agora retorna `"Quantidade inválida"` (antes retornava `true`), e a mensagem de `estoqueAposVenda(3, 4)` agora está com "i" minúsculo, como o PDF pede. Também testei `podeAtenderPedido(2.5, 1)` e `podeAtenderPedido(10, 0)`, que retornaram `"Quantidade inválida"`.
+
+---
+
+## Etapa 4 – Nova regra: estoque mínimo após a venda
+
+Regra: `estoqueAposVenda` deve deixar pelo menos 2 unidades. Se o saldo for menor que 2, retorna `"Estoque mínimo atingido"`.
+
+### Teste escrito e executado **antes** de alterar a função
+
+```javascript
+const esperado = "Estoque mínimo atingido";
+const obtido = estoqueAposVenda(5, 4);
+
+console.log("Esperado", esperado);
+console.log("Obtido", obtido);
+
+if (obtido === esperado) {
+    console.log("PASSOU");
+} else {
+    console.log("FALHOU");
+}
+```
+
+Resultado antes da mudança:
+
+```
+Esperado Estoque mínimo atingido
+Obtido 1
+FALHOU
+```
+
+Falhou como esperado, porque a regra nova ainda não existia.
+
+### Função depois da mudança
+
+```javascript
+export function estoqueAposVenda(estoque, pedido) {
+    if (!dadosValidos(estoque, pedido)) {
+        return "Quantidade inválida";
+    }
+    if (pedido > estoque) {
+        return "Estoque insuficiente";
+    }
+    const saldo = estoque - pedido;
+    if (saldo < 2) {
+        return "Estoque mínimo atingido";
+    }
+    return saldo;
+}
+```
+
+Resultado do mesmo teste depois da mudança:
+
+```
+Esperado Estoque mínimo atingido
+Obtido Estoque mínimo atingido
+PASSOU
+```
+
+### Antes e depois
+
+| Chamada | Antes | Depois |
+|---|---|---|
+| `estoqueAposVenda(5, 4)` | 1 | "Estoque mínimo atingido" |
+| `estoqueAposVenda(5, 3)` | 2 (valor pelo código da Etapa 3) | 2 |
+| `estoqueAposVenda(3, 4)` | "Estoque insuficiente" | "Estoque insuficiente" |
+
+`podeAtenderPedido` não foi alterada, pois continua verificando só se há unidades para o pedido.
+
+---
+
+## Etapa 5 – Testes
+
+Testes executados com `node estoque.js`:
+
+| # | Função | Entrada | Esperado | Obtido | Resultado |
+|---|---|---|---|---|---|
+| 1 | estoqueAposVenda | (5, 4) | "Estoque mínimo atingido" | "Estoque mínimo atingido" | PASSOU |
+| 2 | estoqueAposVenda | (5, 3) | 2 | 2 | PASSOU |
+| 3 | estoqueAposVenda | (3, 4) | "Estoque insuficiente" | "Estoque insuficiente" | PASSOU |
+| 4 | podeAtenderPedido | (10, 4) | true | true | PASSOU |
+| 5 | podeAtenderPedido | (3, 4) | false | false | PASSOU |
+| 6 | podeAtenderPedido | ("10", 4) | "Quantidade inválida" | "Quantidade inválida" | PASSOU |
+| 7 | estoqueAposVenda | (2.5, 1) | "Quantidade inválida" | "Quantidade inválida" | PASSOU |
+| 8 | podeAtenderPedido | (4, 4) | true | true | PASSOU |
+
+### Caso adicional sugerido pela IA
+
+- **Caso sugerido:** `podeAtenderPedido(4, 4)`, que testa o limite em que o pedido é igual ao estoque.
+- **Cálculo do esperado (feito por mim):** calculei `0`, pensando no saldo.
+- **Obtido ao executar:** `true`. O teste deu `FALHOU`.
+- **Análise:** o erro estava no meu cálculo, e não no código. `podeAtenderPedido` responde se o pedido pode ser atendido (`true` ou `false`), e não calcula saldo. Como 4 é menor ou igual a 4, o esperado correto é `true`.
+- **Correção e nova execução:** troquei o esperado para `true` e o teste deu `PASSOU`.
+
+---
+
+## Sugestão da IA e evidência usada para avaliá-la
+
+- **Sugestão:** validar as quantidades apenas com `typeof x !== "number"`.
+- **Evidência:** ao executar `estoqueAposVendaAntiga(2.5, 1)` obtive `1.5`. Isso mostra que a sugestão sozinha não cumpre as regras do PDF (inteiro, estoque ≥ 0, pedido > 0).
+- **Decisão:** usei `Number.isInteger` e as checagens de faixa dentro de `dadosValidos`.
